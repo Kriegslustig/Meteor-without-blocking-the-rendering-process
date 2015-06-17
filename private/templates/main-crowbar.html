@@ -1,0 +1,19 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hi...</title>
+</head>
+<body>
+  <div id="fubarLoader">
+    {{{ getTemplate "example" }}}
+  </div>
+  {{{ foot }}}
+  <script type="text/javascript">
+    document.addEventListener('readystatechange', function () {
+      console.log(document.readyState)
+      if(document.readyState != 'complete') return
+      document.body.removeChild(document.getElementById('fubarLoader'))
+    })
+  </script>
+</body>
+</html>

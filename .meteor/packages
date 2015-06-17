@@ -9,3 +9,5 @@ autopublish
 insecure
 meteorhacks:ssr
 webapp
+underscore
+iron:router
