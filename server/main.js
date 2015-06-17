@@ -1,0 +1,2 @@
+
+var renderedHTML = getTemplate('main')
