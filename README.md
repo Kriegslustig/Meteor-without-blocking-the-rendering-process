@@ -66,3 +66,16 @@ var renderedHTML = SSR.render('sayHi', {name: 'Jude'})
 
 This is just a very simple and not very practical example. For further infos on the usage of `SSR`, check out [it's repo](https://github.com/meteorhacks/meteor-ssr).
 
+### Serving the HTML
+
+Now we can simply use `WebApp` to server the generated HTML.
+
+_server/main.js_
+
+```
+var renderedHTML = getTemplate.call({name: 'Jude'}, 'main')
+
+WebApp.connectHandlers.use('/', function (req, res, next) {
+  res.end(renderedHTML)
+})
+```
