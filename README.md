@@ -3,7 +3,7 @@ Instructions on serving Meteor without blocking the rendering process
 
 ## The Idea
 
-The Idea is to utilities the [Server-Side Rendering package](https://github.com/meteorhacks/meteor-ssr) and the core package [WebApp](https://github.com/meteor/meteor/tree/devel/packages/webapp) to achieve this.
+The Idea is to utilise the [Server-Side Rendering package](https://github.com/meteorhacks/meteor-ssr) and the core package [WebApp](https://github.com/meteor/meteor/tree/devel/packages/webapp) to achieve this.
 
 ## Execution
 
