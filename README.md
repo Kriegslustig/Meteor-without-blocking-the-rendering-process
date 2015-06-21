@@ -124,7 +124,7 @@ As you can probably tell, I defined an object `connectMangler` outside of this s
 </html>
 ```
 
-As you can see; what was inside the `head` before is now at the bottom of the `body`. But there's a *little* problem with `HCR`... It's sort of broken. When something changes in your code, it goes into an infinite loop and constantly reloads the page. Then you must get the Page to fully reload. You can do that by restarting meteor. So that solution is absolutely useless.
+As you can see; what was inside the `head` before is now at the bottom of the `body`. But there's a *little* problem with `HCP`... It's sort of broken. When something changes in your code, it goes into an infinite loop and constantly reloads the page. Then you must get the Page to fully reload. You can do that by restarting meteor. So that solution is absolutely useless.
 
 
 ## The "Push and shove" approach
@@ -228,6 +228,61 @@ _private/templates/pushAndShove.html_
 ...
 ```
 
-Now here's where it gets hairy. Inside the function returned by `includeRenderer` I'm creating new `script`/`link` tags and appending them to the element passed as an argument. `document.head` in this case. When you dynamically create `script`-elements, they get leaded asynchronously. I expected that not to be a problem, since dependency resolution [isn't a very hard to handle](https://en.wikipedia.org/wiki/Topological_sorting#Algorithms). Loading all packages synchronously is a solution, but not a very nice one. It's very slow. In production of course, this is no problem. Because the scripts all get concatenated into a single file.\
+Now here's where it gets hairy. Inside the function returned by `includeRenderer` I'm creating new `script`/`link` tags and appending them to the element passed as an argument. `document.head` in this case. When you dynamically create `script`-elements, they get leaded asynchronously. I expected that not to be a problem, since dependency resolution [isn't a very hard to handle](https://en.wikipedia.org/wiki/Topological_sorting#Algorithms). Loading all packages synchronously is a solution, but not a very nice one. It's very slow. In production of course, this is no problem. Because the scripts all get concatenated into a single file.
 
-The `underscore` package is the only one with no dependencies. So it defines the `Package` variable. All other packages will fail loading because they check for `Package` to be defined. Which it is inprobable to be.
+The `underscore` package is the only one with no dependencies. So it defines the `Package` variable. All other packages will fail loading because they check for `Package` to be defined. Which it is inprobable to be. To solve this we have to add a script, wait for it to load, add the next, wait and so on. This is much slower that it would be to just server these scripts inside the header in the first place. That's because when the browser sees ressources to be loaded, it fetches them as fast as possible. Once it has fetched the first one, it starts triggering execution of the fetched scripts in the right order. The nicest way to simulate this by using [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/GlobalFetch). Sadly, though it's still in an experimental state.
+
+We can simulate this using `XMLHttpRequest`s. Even tough it's only half as nice as `fetch`, it gets the job done. On localhost it's about 10x faster to do these request asynchronously. So this is what I ended up doing:
+
+_private/pushAndShove.html_
+```
+...
+
+function includeRenderer(appendTo, includes) {
+  function appendScript (id, script) {
+    appendTo.appendChild(createScriptTag(script, 'meteorScript' + id))
+  }
+  appendScript('-1', '')
+  console.log(includes.map(function (val) {return val.path}))
+  includes.forEach(function (include, index) {
+    fetchScript(
+      urlPrefix + include.url,
+      depChecker('meteorScript' + (index - 1), appendScript.bind(null, index))
+    )
+  })
+  depChecker('meteorScript' + (includes.length - 1), document.body.removeChild(document.getElementById('boilerPlateLoader')))
+}
+
+function createScriptTag (script, id) {
+  var scriptElem = document.createElement('script')
+  scriptElem.type = 'text/javascript'
+  scriptElem.id = id
+  scriptElem.innerHTML = script
+  return scriptElem
+}
+
+function fetchScript (resource, callback) {
+  var req = new XMLHttpRequest()
+  req.open('GET', resource)
+  req.addEventListener('load', ajaxResponseHandler(callback))
+  req.send()
+}
+
+function ajaxResponseHandler (callback) {
+  return function () {
+    var self = this
+    if(self.responseText) callback(self.responseText)
+  }
+}
+
+function depChecker (waitForElem, callback) {
+  var args = arguments
+  return function (data) {
+    console.log(waitForElem)
+    if(document.getElementById(waitForElem)) return callback(data)
+    setTimeout(depChecker.apply(null, args).bind(null, data), 1)
+  }
+}
+```
+
+That's pretty close to what we're going for. This kinda works in some browsers, but not in all. And of course `HCP` doen't work. It seems that there's still some dependecy resolution problem.
