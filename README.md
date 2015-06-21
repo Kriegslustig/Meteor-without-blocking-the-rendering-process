@@ -170,7 +170,64 @@ This doesn't look special, but for me it was kinda wierd to see. It's a function
 
 Meteor [adds the WebApp package by default](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/meteor-platform/package.js#L20) through the `meteor-platform` package.
 
-Inside the [`runWebAppServer`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L442) function, Meteor calls [`WebAppInternals.getBoilerplate`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L243), function which uses the [`boilerplateByArch`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L552) object. This is partly defined by [`WebApp.clientPrograms`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L497). This is where it finally gets interesting. It's a cache containing what meteor calls `manifest`s. These manifest contain all required scripts. It's exactly what we are looking for. So let's give it a try:
+Inside the [`runWebAppServer`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L442) function, Meteor calls [`WebAppInternals.getBoilerplate`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L243), function which uses the [`boilerplateByArch`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L552) object. This is partly defined by [`WebApp.clientPrograms`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L497). This is where it finally gets interesting. It's a cache containing what meteor calls `manifest`s. These manifest contain all required scripts. It's exactly what we are looking for. So I give it a try.
 
+First we'll have to get the files we want to included served. To do that we'd need to figure out what architecture we're working with. Since there is no easy way of doing that (not yet at least), we'll just use the default, Which is `web.client`. It's stored inside `WebApp.defaultArch`. So that makes it somewhat dynamic. Then we need to read the manifest which is an array. To that array of includes we also need to add `WebAppInternals.additionalStaticJs`. We shouldn't use this variable, as it's stated [in the source code](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/webapp/webapp_server.js#L791). But there seems to be some disagreement about what `WebAppInternals` is actually for. I say this, because its used [all](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/autoupdate/autoupdate_server.js#L61) [over](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/reload-safetybelt/reload-safety-belt.js#L6) [the](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/autoupdate/autoupdate_server.js#L89) [place](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/browser-policy-content/browser-policy-content.js#L140). Mostly dough by the [`reload-safetybelt`](https://github.com/meteor/meteor/tree/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/reload-safetybelt) package. I'm not sure about how `WebAppInternals.additionalStaticJs` actually is, but I guess we have to comply with this wierdness. Anyway, now we should have an array containing all the scripts we want to include. We then encode it in `EJSON` and add it to the data context of the main template.
 
+_server/pushAndShove.js_
+```
+WebApp.connectHandlers.use(function (req, res, next) {
+  res.end(getTemplate.call(getTemplateData(), 'pushAndShove'))
+})
 
+function getTemplateData () {
+  var data = {
+    includes: getIncludes(WebApp.defaultArch),
+    meteorRuntimeConfig: __meteor_runtime_config__ || {}
+  }
+  _.each(data, function (value, key) {
+    data[key] = EJSON.stringify(value)
+  })
+  return data
+}
+
+function getIncludes (arch) {
+  return WebApp.clientPrograms[arch].manifest.concat(parseStaticJS(WebAppInternals.additionalStaticJs))
+}
+
+function parseStaticJS (staticJsObj) {
+  var returnArr = []
+  _.each(staticJsObj, function (js, key) {
+    returnArr.push({
+      type: 'js',
+      url: key
+    })
+  })
+  return returnArr
+}
+```
+
+We are also passing the `__meteor_runtime_config__` to the template. This is because it's used clientside. The `EJSON` string is automatically parsed by `SSR`. So in the main template we can do this:
+
+_private/templates/pushAndShove.html_
+```
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <script type="text/javascript">
+    var __meteor_runtime_config__ = {{ meteorRuntimeConfig }}
+  </script>
+</head>
+<body>
+  <script type="text/javascript" id="boilerPlateLoader">
+    (function (includes) {
+      var urlPrefix = jsCssPrefix = __meteor_runtime_config__.ROOT_URL_PATH_PREFIX || '';
+      includes.forEach(includeRenderer(document.head))
+      document.body.removeChild(document.getElementById('boilerPlateLoader'))
+...
+```
+
+Now here's where it gets hairy. Inside the function returned by `includeRenderer` I'm creating new `script`/`link` tags and appending them to the element passed as an argument. `document.head` in this case. When you dynamically create `script`-elements, they get leaded asynchronously. I expected that not to be a problem, since dependency resolution [isn't a very hard to handle](https://en.wikipedia.org/wiki/Topological_sorting#Algorithms). Loading all packages synchronously is a solution, but not a very nice one. It's very slow. In production of course, this is no problem. Because the scripts all get concatenated into a single file.\
+
+The `underscore` package is the only one with no dependencies. So it defines the `Package` variable. All other packages will fail loading because they check for `Package` to be defined. Which it is inprobable to be.
