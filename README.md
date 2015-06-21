@@ -125,3 +125,52 @@ As you can probably tell, I defined an object `connectMangler` outside of this s
 ```
 
 As you can see; what was inside the `head` before is now at the bottom of the `body`. But there's a *little* problem with `HCR`... It's sort of broken. When something changes in your code, it goes into an infinite loop and constantly reloads the page. Then you must get the Page to fully reload. You can do that by restarting meteor. So that solution is absolutely useless.
+
+
+## The "Push and shove" approach
+
+I tried looking through the Meteor-Core to find out how the `Boilerplate` is generated. The components involved are [`WebApp`](https://github.com/meteor/meteor/tree/devel/packages/webapp) and [`Boilerplate`](https://github.com/meteor/meteor/tree/devel/packages/boilerplate-generator). This is how meteor gets there:
+
+[_meteor_](https://github.com/meteor/meteor/blob/devel/meteor#L133)
+```
+...
+METEOR="$SCRIPT_DIR/tools/main.js"
+...
+exec "$DEV_BUNDLE/bin/node" "$METEOR" "$@"
+````
+
+[_tools/main.js_](https://github.com/meteor/meteor/blob/devel/tools/main.js#L490)
+```
+...
+var executable = files.pathJoin(packagePath, toolRecord.path, 'meteor');
+...
+require('kexec')(executable, newArgv);
+...
+```
+
+Now the next step took me a while to find. It's important to know how the `WebApp` export works.
+
+[_packages/webapp/package.js_](https://github.com/meteor/meteor/blob/devel/packages/webapp/package.js#L36)
+```
+  ...
+  api.addFiles('webapp_client.js', 'client');
+  ...
+```
+
+This is pretty straight forward. A simple export. Now here comes the interesting part.
+
+[_packages/webapp/webapp_server.js_](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L763)
+```
+...
+runWebAppServer();
+...
+```
+
+This doesn't look special, but for me it was kinda wierd to see. It's a function execution on the root level. So when you add `WebServer` this function will always get executed. This seriously confused me and I feel it's bad practice.
+
+Meteor [adds the WebApp package by default](https://github.com/meteor/meteor/blob/832e6fe44f3635cae060415d6150c0105f2bf0f6/packages/meteor-platform/package.js#L20) through the `meteor-platform` package.
+
+Inside the [`runWebAppServer`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L442) function, Meteor calls [`WebAppInternals.getBoilerplate`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L243), function which uses the [`boilerplateByArch`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L552) object. This is partly defined by [`WebApp.clientPrograms`](https://github.com/meteor/meteor/blob/devel/packages/webapp/webapp_server.js#L497). This is where it finally gets interesting. It's a cache containing what meteor calls `manifest`s. These manifest contain all required scripts. It's exactly what we are looking for. So let's give it a try:
+
+
+
