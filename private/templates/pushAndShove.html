@@ -1,0 +1,71 @@
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document</title>
+  <meta charset="utf-8">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="viewport" content="user-scalable=no, initial-scale=1, maximum-scale=1, minimum-scale=1, width=device-width, height=device-height">
+  <meta name="msapplication-tap-highlight" content="no">
+  <script type="text/javascript">
+    var __meteor_runtime_config__ = {{ meteorRuntimeConfig }}
+  </script>
+</head>
+<body>
+  <div id="boilerPlateLoader">
+    <p>Loading...</p>
+    <script type="text/javascript">
+      (function (includes) {
+        var urlPrefix = jsCssPrefix = __meteor_runtime_config__.ROOT_URL_PATH_PREFIX || '';
+        includeRenderer(document.head, includes)
+
+        function includeRenderer(appendTo, includes) {
+          function appendScript (id, script) {
+            appendTo.appendChild(createScriptTag(script, 'meteorScript' + id))
+          }
+          appendScript('-1', '')
+          console.log(includes.map(function (val) {return val.path}))
+          includes.forEach(function (include, index) {
+            fetchScript(
+              urlPrefix + include.url,
+              depChecker('meteorScript' + (index - 1), appendScript.bind(null, index))
+            )
+          })
+          depChecker('meteorScript' + (includes.length - 1), document.body.removeChild(document.getElementById('boilerPlateLoader')))
+        }
+
+        function createScriptTag (script, id) {
+          var scriptElem = document.createElement('script')
+          scriptElem.type = 'text/javascript'
+          scriptElem.id = id
+          scriptElem.innerHTML = script
+          return scriptElem
+        }
+
+        function fetchScript (resource, callback) {
+          var req = new XMLHttpRequest()
+          req.open('GET', resource)
+          req.addEventListener('load', ajaxResponseHandler(callback))
+          req.send()
+        }
+
+        function ajaxResponseHandler (callback) {
+          return function () {
+            var self = this
+            if(self.responseText) callback(self.responseText)
+          }
+        }
+
+        function depChecker (waitForElem, callback) {
+          var args = arguments
+          return function (data) {
+            console.log(waitForElem)
+            if(document.getElementById(waitForElem)) return callback(data)
+            setTimeout(depChecker.apply(null, args).bind(null, data), 1)
+          }
+        }
+
+      })({{ includes }})
+    </script>
+  </div>
+</body>
+</html>
