@@ -19,24 +19,38 @@
         includeRenderer(document.head, includes)
 
         function includeRenderer(appendTo, includes) {
-          function appendScript (id, script) {
-            appendTo.appendChild(createScriptTag(script, 'meteorScript' + id))
+          var allScripts = ''
+          var nthScriptLoaded = -1
+
+          function cleanUpAndAppend () {
+            document.body.removeChild(document.getElementById('boilerPlateLoader'))
+            appendTo.appendChild(createScriptTag(allScripts))
           }
-          appendScript('-1', '')
-          console.log(includes.map(function (val) {return val.path}))
+
+          function loadScript (script) {
+            allScripts += '\n' + script
+          }
+
+          function loadedChecker (waitFor) {
+            return function () {
+              if(waitFor != nthScriptLoaded) return false
+              nthScriptLoaded++
+              return true
+            }
+          }
+
           includes.forEach(function (include, index) {
             fetchScript(
               urlPrefix + include.url,
-              depChecker('meteorScript' + (index - 1), appendScript.bind(null, index))
+              depChecker(loadedChecker(index - 1), loadScript)
             )
           })
-          depChecker('meteorScript' + (includes.length - 1), document.body.removeChild(document.getElementById('boilerPlateLoader')))
+          depChecker(loadedChecker(includes.length - 1), cleanUpAndAppend)()
         }
 
-        function createScriptTag (script, id) {
+        function createScriptTag (script) {
           var scriptElem = document.createElement('script')
           scriptElem.type = 'text/javascript'
-          scriptElem.id = id
           scriptElem.innerHTML = script
           return scriptElem
         }
@@ -55,12 +69,11 @@
           }
         }
 
-        function depChecker (waitForElem, callback) {
+        function depChecker (isTrue, callback) {
           var args = arguments
           return function (data) {
-            console.log(waitForElem)
-            if(document.getElementById(waitForElem)) return callback(data)
-            setTimeout(depChecker.apply(null, args).bind(null, data), 1)
+            if(isTrue()) return callback(data)
+            setTimeout(depChecker.apply(null, args).bind(null, data), 10)
           }
         }
 
