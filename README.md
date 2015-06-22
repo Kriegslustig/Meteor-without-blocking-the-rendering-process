@@ -232,9 +232,9 @@ Now here's where it gets hairy. Inside the function returned by `includeRenderer
 
 The `underscore` package is the only one with no dependencies. So it defines the `Package` variable. All other packages will fail loading because they check for `Package` to be defined. Which it is improbable to be. To solve this we have to add a script, wait for it to load, add the next, wait and so on. This is much slower that it would be to just server these scripts inside the header in the first place. That's because when the browser comes across resources to be loaded, it fetches them as fast as possible. Once it has fetched the first one, it starts triggering execution of the fetched scripts in the right order. The nicest way to simulate this by using [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/GlobalFetch). Sadly, though it's still in an experimental state.
 
-We can simulate this using `XMLHttpRequest`s. It gets the job done even tough it's only half as nice as `fetch`. Locally it's about 10x faster to do these request asynchronously. So this is what I ended up doing:
+We can simulate this using `XMLHttpRequest`s. It gets the job done even tough it's only half as nice as `fetch`. Locally it's about 10x faster to do these request asynchronously. So this is what I ended up doing (again I tried to take out the relevant parts):
 
-_private/pushAndShove.html_
+[_private/templates/pushAndShove.html_](https://github.com/Kriegslustig/Meteor-without-blocking-the-rendering-process/blob/ecd973f970ce101383ddbf1589a7f0a93b1376be/private/templates/pushAndShove.html#L21)
 ```
 ...
 
@@ -253,27 +253,7 @@ function includeRenderer(appendTo, includes) {
   depChecker('meteorScript' + (includes.length - 1), document.body.removeChild(document.getElementById('boilerPlateLoader')))
 }
 
-function createScriptTag (script, id) {
-  var scriptElem = document.createElement('script')
-  scriptElem.type = 'text/javascript'
-  scriptElem.id = id
-  scriptElem.innerHTML = script
-  return scriptElem
-}
-
-function fetchScript (resource, callback) {
-  var req = new XMLHttpRequest()
-  req.open('GET', resource)
-  req.addEventListener('load', ajaxResponseHandler(callback))
-  req.send()
-}
-
-function ajaxResponseHandler (callback) {
-  return function () {
-    var self = this
-    if(self.responseText) callback(self.responseText)
-  }
-}
+...
 
 function depChecker (waitForElem, callback) {
   var args = arguments
@@ -286,3 +266,52 @@ function depChecker (waitForElem, callback) {
 ```
 
 That's pretty close to what we're going for. This kinda works in some browsers, but not in all. And of course `HCP` doesn't work. It seems that there's still some dependency resolution problem.
+
+When I load the site in chorme I get an error `Spacebars is not defined` from within `packages/iron:layout/template.default_layout.js`. Now this seems to me to be the correct behaviour, because when I look at the manifest paths I see something like this:
+
+```
+...
+packages/iron_core.js
+packages/iron_dynamic-template.js
+packages/iron_layout.js
+packages/iron_url.js
+packages/iron_middleware-stack.js
+...
+packages/spacebars.js
+...
+```
+
+Oddly enough it works in FF dough. But when I do this:
+
+```
+if(document.getElementById(waitForElem)) return setTimeout(callback.bind(null, data), 100)
+```
+
+which delays the script insert by `100` miliseconds, I get the same error in FF as in Chrome. The one way that has to work though, is if I simply buffer the scripts inside a string. As soon as the last one has been buffered, I append the whole thing to the head. This is a little more complex, because of the buffering part. Here are the important parts of the script I added:
+
+
+_assets/templates/pushAndShove.html_
+```
+...
+
+function includeRenderer(appendTo, includes) {
+  var allScripts = ''
+  var nthScriptLoaded = -1
+
+  [...]
+
+  includes.forEach(function (include, index) {
+    fetchScript(
+      urlPrefix + include.url,
+      depChecker(loadedChecker(index - 1), loadScript)
+    )
+  })
+  depChecker(loadedChecker(includes.length - 1), cleanUpAndAppend)()
+}
+...
+```
+
+This works and performs pretty well. Now to why this works and loading it in seperate script tags did not. I believe, that the reason is hoisting. The browser normally parses script tags on by one. What it roughly does is; it goes through a scope, hoists and then executes the script. It does this process for every script seperately. Meaning when you rely on hoisting and split the script into two seperate script-tags it will fail. Makes sense, right?
+
+But why does it work when loading all the scripts as external ressources at the beginning. Honestly I don't have a clue. My guess is that JS treats external script-tags inside the head and inline script-tags differently. Anyway I'm still figuring this out. (I also might have forgotten about it by now)
+
