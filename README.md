@@ -1,6 +1,8 @@
 # Meteor-without-blocking-the-rendering-process
 Instructions on serving Meteor without blocking the rendering process
 
+[I'm writting a package for this, it's called `altboiler`.](https://github.com/Kriegslustig/meteor-altboiler)
+
 ## The Idea
 
 The Idea is to utilise the [Server-Side Rendering package](https://github.com/meteorhacks/meteor-ssr) and the core package [WebApp](https://github.com/meteor/meteor/tree/devel/packages/webapp) to achieve this.
