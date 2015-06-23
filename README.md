@@ -127,7 +127,7 @@ As you can probably tell, I defined an object `connectMangler` outside of this s
 As you can see; what was inside the `head` before is now at the bottom of the `body`. But there's a *little* problem with `HCP`... It's sort of broken. When something changes in your code, it goes into an infinite loop and constantly reloads the page. Then you must get the Page to fully reload. You can do that by restarting meteor. So that solution is absolutely useless.
 
 
-## The "Push and shove" approach
+### The "Push and shove" approach
 
 I tried looking through the Meteor-Core to find out how the `Boilerplate` is generated. The components involved are [`WebApp`](https://github.com/meteor/meteor/tree/devel/packages/webapp) and [`Boilerplate`](https://github.com/meteor/meteor/tree/devel/packages/boilerplate-generator). This is how meteor gets there:
 
@@ -315,3 +315,8 @@ This works and performs pretty well. Now to why this works and loading it in sep
 
 But why does it work when loading all the scripts as external ressources at the beginning. Honestly I don't have a clue. My guess is that JS treats external script-tags inside the head and inline script-tags differently. Anyway I'm still figuring this out. (I also might have forgotten about it by now)
 
+This solution works and I haven yet to find a problem with it. It'll probably make the initial load a bit slower (might not be true loading the scripts via AJAX was faster in the tests I ran). Even if there was a small performance loss, I think it's well woth the better UX.
+
+### The "Serious Business" Approach
+
+Now to do use this in production we'll definetly want a well tested Package. So that's what I'm creating. Right now, with the `pushAndShove` solution, we are circumventing the whole Boilderplate package. The Boilderplates are still cached to. So the nices solution would be to replace the whole `boilerplate-generator` package and its `Boilerplate` variable. So that's what I'll try to do.
