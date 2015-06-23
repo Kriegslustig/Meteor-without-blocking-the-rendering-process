@@ -267,7 +267,7 @@ function depChecker (waitForElem, callback) {
 
 That's pretty close to what we're going for. This kinda works in some browsers, but not in all. And of course `HCP` doesn't work. It seems that there's still some dependency resolution problem.
 
-When I load the site in chorme I get an error `Spacebars is not defined` from within `packages/iron:layout/template.default_layout.js`. Now this seems to me to be the correct behaviour, because when I look at the manifest paths I see something like this:
+When I load the site in Chorme I get an error `Spacebars is not defined` from within `packages/iron:layout/template.default_layout.js`. Now this seems to me to be the correct behaviour, because when I look at the manifest paths I see something like this:
 
 ```
 ...
@@ -287,7 +287,7 @@ Oddly enough it works in FF dough. But when I do this:
 if(document.getElementById(waitForElem)) return setTimeout(callback.bind(null, data), 100)
 ```
 
-which delays the script insert by `100` miliseconds, I get the same error in FF as in Chrome. The one way that has to work though, is if I simply buffer the scripts inside a string. As soon as the last one has been buffered, I append the whole thing to the head. This is a little more complex, because of the buffering part. Here are the important parts of the script I added:
+Which delays the script insert by `100` milliseconds, I get the same error in FF as in Chrome. The one way that has to work though, is if I simply buffer the scripts inside a string. As soon as the last one has been buffered, I append the whole thing to the head. This is a little more complex, because of the buffering part. Here are the important parts of the script I added:
 
 
 _assets/templates/pushAndShove.html_
@@ -311,12 +311,12 @@ function includeRenderer(appendTo, includes) {
 ...
 ```
 
-This works and performs pretty well. Now to why this works and loading it in seperate script tags did not. I believe, that the reason is hoisting. The browser normally parses script tags on by one. What it roughly does is; it goes through a scope, hoists and then executes the script. It does this process for every script seperately. Meaning when you rely on hoisting and split the script into two seperate script-tags it will fail. Makes sense, right?
+This works and performs pretty well. Now to why this works and loading it in separate script tags did not. I believe, that the reason is hoisting. The browser normally parses script tags on by one. What it roughly does is; it goes through a scope, hoists and then executes the script. It does this process for every script separately. Meaning when you rely on hoisting and split the script into two separate script-tags it will fail. Makes sense, right?
 
-But why does it work when loading all the scripts as external ressources at the beginning. Honestly I don't have a clue. My guess is that JS treats external script-tags inside the head and inline script-tags differently. Anyway I'm still figuring this out. (I also might have forgotten about it by now)
+But why does it work when loading all the scripts as external resources at the beginning. Honestly I don't have a clue. My guess is that JS treats external script-tags inside the head and inline script-tags differently. Anyway I'm still figuring this out. (I also might have forgotten about it by now)
 
-This solution works and I haven yet to find a problem with it. It'll probably make the initial load a bit slower (might not be true loading the scripts via AJAX was faster in the tests I ran). Even if there was a small performance loss, I think it's well woth the better UX.
+This solution works and I haven yet to find a problem with it. It'll probably make the initial load a bit slower (might not be true loading the scripts via AJAX was faster in the tests I ran). Even if there was a small performance loss, I think it's well worth the better UX.
 
 ### The "Serious Business" Approach
 
-Now to do use this in production we'll definetly want a well tested Package. So that's what I'm creating. Right now, with the `pushAndShove` solution, we are circumventing the whole Boilderplate package. The Boilderplates are still cached to. So the nices solution would be to replace the whole `boilerplate-generator` package and its `Boilerplate` variable. So that's what I'll try to do.
+Now to do use this in production we'll definitely want a well tested Package. So that's what I'm creating. Right now, with the `pushAndShove` solution, we are circumventing the whole Boilderplate package. The Boilderplates are still cached to. So the nicest solution would be to replace the whole `boilerplate-generator` package and its `Boilerplate` variable. So that's what I'll try to do.
