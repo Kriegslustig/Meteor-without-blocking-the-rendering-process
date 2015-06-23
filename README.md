@@ -317,6 +317,6 @@ But why does it work when loading all the scripts as external resources at the b
 
 This solution works and I haven yet to find a problem with it. It'll probably make the initial load a bit slower (might not be true loading the scripts via AJAX was faster in the tests I ran). Even if there was a small performance loss, I think it's well worth the better UX.
 
-### The "Serious Business" Approach
+### [The "Serious Business" Approach](https://github.com/Kriegslustig/meteor-altboiler)
 
 Now to do use this in production we'll definitely want a well tested Package. So that's what I'm creating. Right now, with the `pushAndShove` solution, we are circumventing the whole Boilderplate package. The Boilderplates are still cached to. So the nicest solution would be to replace the whole `boilerplate-generator` package and its `Boilerplate` variable. So that's what I'll try to do.
