@@ -1,4 +1,8 @@
 Router.route('/', {
-  name: 'test',
+  name: 'home',
+  data: {meteor: 'Meteor'}
+})
+
+Router.route('/test', {
   data: {meteor: 'Meteor'}
 })
