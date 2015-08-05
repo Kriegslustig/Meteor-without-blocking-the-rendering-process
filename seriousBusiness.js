@@ -1,3 +1,3 @@
 altboiler.config({
-  showLoader: false
+  showLoader: true
 })
